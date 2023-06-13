@@ -18,7 +18,7 @@ app.use(express.json());
 
 const verifyJWT = (req, res, next) => {
   const authorization = req.headers.authorization;
-  
+
   if (!authorization) {
     return res.status(401).send({ error: true, message: 'unauthorized access' });
   }
@@ -112,11 +112,11 @@ async function run() {
       if (req.decoded.email !== email) {
         res.send({ admin: false })
       }
-     
+
       const query = { email: email }
       const user = await usersCollection.findOne(query);
       const result = { admin: user?.role == 'admin' }
-     
+
       res.send(result);
     })
 
@@ -166,11 +166,11 @@ async function run() {
       if (req.decoded.email !== email) {
         res.send({ instractor: false })
       }
-     
+
       const query = { email: email }
       const user = await usersCollection.findOne(query);
       const result = { instractor: user?.role == 'instractor' }
-   
+
       res.send(result);
     })
 
@@ -178,9 +178,9 @@ async function run() {
 
     app.get("/instractor/:email", async (req, res) => {
       const email = req.params.email;
-    
+
       const query = { instructorEmail: email }
-     
+
       const result = await classCollection.find(query).toArray();
       res.send(result)
     })
@@ -218,30 +218,31 @@ async function run() {
 
 
 
-    // app.patch("/class/:id", async (req, res) => {
-    //   const id = req.params.id;
-    //   const { feedback } = req.body;
-    //   const filter = { _id: new ObjectId(id) };
-    //   const updateDoc = {
-    //     $set: { feedback },
-    //   };
-
-    //   try {
-    //     const result = await classCollection.updateOne(filter, updateDoc);
-    //     res.send(result);
-    //   } catch (error) {
-    //     res.status(500).send({ error: "Failed to update feedback." });
-    //   }
-    // });
-
-
-
-
-
-
     app.patch("/allClass/:id", async (req, res) => {
       const id = req.params.id;
-     
+      const { feedback } = req.body;
+      console.log(feedback);
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: { feedback },
+      };
+
+      try {
+        const result = await classCollection.updateOne(filter, updateDoc);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: "Failed to update feedback." });
+      }
+    });
+
+
+
+
+
+
+    app.patch("/allClass/Approve/:id", async (req, res) => {
+      const id = req.params.id;
+
       const filter = { _id: new ObjectId(id) };
 
       const updateDoc = {
@@ -262,7 +263,7 @@ async function run() {
 
     app.patch("/allClass/danny/:id", async (req, res) => {
       const id = req.params.id;
-      
+
       const filter = { _id: new ObjectId(id) };
 
       const updateDoc = {
@@ -312,6 +313,10 @@ async function run() {
     })
 
 
+
+
+
+
     app.delete("/selectClass/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -325,14 +330,14 @@ async function run() {
 
     app.post('/create-payment-intent', verifyJWT, async (req, res) => {
       const { price } = req.body;
-     
-      const amount = parseInt(price)*100;
+
+      const amount = parseInt(price) * 100;
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amount,
         currency: 'usd',
         payment_method_types: ['card']
       });
-console.log(amount);
+      console.log(amount);
       res.send({
         clientSecret: paymentIntent.client_secret
       })
@@ -345,18 +350,22 @@ console.log(amount);
     app.post('/payment', verifyJWT, async (req, res) => {
       const payment = req.body;
       const insertResult = await paymentCollection.insertOne(payment);
-    
+
       const query = { _id: new ObjectId(payment.classId) };
       console.log(query);
 
       const deleteResult = await selectClassCollection.deleteOne(query);
-    
+
       res.send({ insertResult, deleteResult });
     });
 
 
 
-
+app.get("/enrollClass",async(req,res)=>{
+   
+  const result = await paymentCollection.find().toArray();
+  res.send(result)
+})
 
 
 
