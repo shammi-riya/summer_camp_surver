@@ -1,10 +1,13 @@
 const express = require('express')
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express()
-const stripe = require("stripe")(process.env.Pement_secret_key)
-const cors = require('cors');
-const jwt = require('jsonwebtoken');
 require('dotenv').config()
+const jwt = require('jsonwebtoken');
+const stripe = require("stripe")(process.env.PEMENT_SECRET_KEY)
+
+const cors = require('cors');
+
+
 const port = process.env.PORT || 5000;
 
 app.use(cors());
@@ -15,11 +18,11 @@ app.use(express.json());
 
 const verifyJWT = (req, res, next) => {
   const authorization = req.headers.authorization;
-  console.log(authorization,'atho');
+  
   if (!authorization) {
     return res.status(401).send({ error: true, message: 'unauthorized access' });
   }
-  
+
   const token = authorization.split(' ')[1];
 
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
@@ -51,9 +54,10 @@ async function run() {
   try {
 
     const classCollection = client.db('summer-camp').collection('class');
-    
+
     const selectClassCollection = client.db('summer-camp').collection('selectClass');
     const usersCollection = client.db('summer-camp').collection('users');
+    const paymentCollection = client.db('summer-camp').collection('pement');
 
 
 
@@ -68,108 +72,124 @@ async function run() {
 
 
 
-app.post("/users" ,async (req,res)=>{
-  const user = req.body;
-  const quiry = {email:user.email}
-  
-  const exitUser= await usersCollection.findOne(quiry);
-  if(exitUser){
-    return res.send({message:"user already exit"})
-  }
-  
-  const result = await usersCollection.insertOne(user);
-  res.send(result);
-})
 
 
-app.get("/users", async (req,res)=>{
-  const result =await usersCollection.find().toArray();
-  res.send(result)
-})
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const quiry = { email: user.email }
+
+      const exitUser = await usersCollection.findOne(quiry);
+      if (exitUser) {
+        return res.send({ message: "user already exit" })
+      }
+
+      const result = await usersCollection.insertOne(user);
+      res.send(result);
+    })
 
 
+    app.get("/users", async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result)
+    })
 
 
-app.get('/users/admin/:email', verifyJWT, async (req, res) => {
-  const email = req.params.email;
-  
+    app.get("/instractors", async (req, res) => {
+      const instructors = await usersCollection.find({ role: "instractor" }).limit(6).toArray();
+      res.send(instructors)
+    })
 
-  
-
-
-  if(req.decoded.email !== email){
-    res.send({ admin: false })
-  }
-
-  const query = { email: email }
-  const user = await usersCollection.findOne(query);
-  const result = { admin: user?.role == 'admin' }
-  
-  res.send(result);
-})
+    app.get("/allInstractors", async (req, res) => {
+      const instructors = await usersCollection.find({ role: "instractor" }).toArray();
+      res.send(instructors)
+    })
 
 
 
+    app.get('/users/admin/:email', verifyJWT, async (req, res) => {
+      const email = req.params.email;
 
-
-
-
-
-
-app.patch("/users/admin/:id",async (req,res)=>{
-  const id = req.params.id;
-  const filter = {_id :new ObjectId(id)};
-  const updateDoc = {
-    $set :{
-      role :"admin"
-    },
-  };
-
-
-  const result =await usersCollection.updateOne(filter,updateDoc);
-  res.send(result);
-})
-
-
-
-app.patch("/users/instractor/:id",async (req,res)=>{
-  const id = req.params.id;
-  const filter = {_id :new ObjectId(id)};
-  const updateDoc = {
-    $set :{
-      role :"instractor"
-    },
-  };
-
-
-  const result =await usersCollection.updateOne(filter,updateDoc);
-  res.send(result);
-})
+      if (req.decoded.email !== email) {
+        res.send({ admin: false })
+      }
+     
+      const query = { email: email }
+      const user = await usersCollection.findOne(query);
+      const result = { admin: user?.role == 'admin' }
+     
+      res.send(result);
+    })
 
 
 
 
-app.get('/users/instractor/:email', verifyJWT, async (req, res) => {
-  const email = req.params.email;
-  console.log("instractor email",email);
-
-  console.log(req.decoded.email,"decoded");
-
-
-  if(req.decoded.email !== email){
-    res.send({ instractor: false })
-  }
-
-  const query = { email: email }
-  const user = await usersCollection.findOne(query);
-  const result = { instractor: user?.role == 'instractor' }
-  console.log("instractor reslt,", result);
-  res.send(result);
-})
 
 
 
 
+
+    app.patch("/users/admin/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          role: "admin"
+        },
+      };
+
+
+      const result = await usersCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    })
+
+
+
+    app.patch("/users/instractor/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          role: "instractor"
+        },
+      };
+
+
+      const result = await usersCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    })
+
+
+
+    app.get('/users/instractor/:email', verifyJWT, async (req, res) => {
+      const email = req.params.email;
+
+      if (req.decoded.email !== email) {
+        res.send({ instractor: false })
+      }
+     
+      const query = { email: email }
+      const user = await usersCollection.findOne(query);
+      const result = { instractor: user?.role == 'instractor' }
+   
+      res.send(result);
+    })
+
+
+
+    app.get("/instractor/:email", async (req, res) => {
+      const email = req.params.email;
+    
+      const query = { instructorEmail: email }
+     
+      const result = await classCollection.find(query).toArray();
+      res.send(result)
+    })
+
+
+
+
+
+    // class Collction
 
     app.get("/class", async (req, res) => {
       const result = await classCollection.find().sort({ numberOfStudents: -1 }).limit(6).toArray();
@@ -180,9 +200,11 @@ app.get('/users/instractor/:email', verifyJWT, async (req, res) => {
 
 
 
-    app.post("/class",async (req,res)=>{
+
+
+    app.post("/class", async (req, res) => {
       const newClass = req.body;
-      const result =await classCollection.insertOne(newClass);
+      const result = await classCollection.insertOne(newClass);
       res.send(result)
     })
 
@@ -194,19 +216,63 @@ app.get('/users/instractor/:email', verifyJWT, async (req, res) => {
 
 
 
-    app.put("/allClass/:id",async (req,res)=>{
+
+
+    // app.patch("/class/:id", async (req, res) => {
+    //   const id = req.params.id;
+    //   const { feedback } = req.body;
+    //   const filter = { _id: new ObjectId(id) };
+    //   const updateDoc = {
+    //     $set: { feedback },
+    //   };
+
+    //   try {
+    //     const result = await classCollection.updateOne(filter, updateDoc);
+    //     res.send(result);
+    //   } catch (error) {
+    //     res.status(500).send({ error: "Failed to update feedback." });
+    //   }
+    // });
+
+
+
+
+
+
+    app.patch("/allClass/:id", async (req, res) => {
       const id = req.params.id;
-      console.log(id);
-      const filter = {_id :new ObjectId(id)};
-      const options = {upsert:true}
+     
+      const filter = { _id: new ObjectId(id) };
+
       const updateDoc = {
-        $set :{
-          stutus :"Approve"
+        $set: {
+          stutus: "Approve"
         },
       };
-    
-    
-      const result =await classCollection.updateOne(filter,options,updateDoc);
+
+
+      const result = await classCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    })
+
+
+
+
+
+
+    app.patch("/allClass/danny/:id", async (req, res) => {
+      const id = req.params.id;
+      
+      const filter = { _id: new ObjectId(id) };
+
+      const updateDoc = {
+        $set: {
+          stutus: "Deny"
+        },
+      };
+
+
+      const result = await classCollection.updateOne(filter, updateDoc);
       res.send(result);
     })
 
@@ -224,15 +290,18 @@ app.get('/users/instractor/:email', verifyJWT, async (req, res) => {
       res.send(result);
     })
 
-    app.get("/selectClass",verifyJWT, async (req, res) => {
+
+
+
+    app.get("/selectClass", verifyJWT, async (req, res) => {
       const email = req.query.email;
-      console.log(email);
+
 
       if (!email) {
         res.send([])
       }
       const decodedEmail = req.decoded.email;
-      console.log(decodedEmail);
+
       if (email !== decodedEmail) {
         return res.status(403).send({ error: true, message: 'forbidden access' })
       }
@@ -245,7 +314,6 @@ app.get('/users/instractor/:email', verifyJWT, async (req, res) => {
 
     app.delete("/selectClass/:id", async (req, res) => {
       const id = req.params.id;
-      // console.log(id);
       const query = { _id: new ObjectId(id) };
       const result = await selectClassCollection.deleteOne(query);
       res.send(result);
@@ -257,13 +325,14 @@ app.get('/users/instractor/:email', verifyJWT, async (req, res) => {
 
     app.post('/create-payment-intent', verifyJWT, async (req, res) => {
       const { price } = req.body;
-      const amount = parseInt(price * 100);
+     
+      const amount = parseInt(price)*100;
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amount,
         currency: 'usd',
         payment_method_types: ['card']
       });
-
+console.log(amount);
       res.send({
         clientSecret: paymentIntent.client_secret
       })
@@ -273,16 +342,17 @@ app.get('/users/instractor/:email', verifyJWT, async (req, res) => {
 
 
 
-
-    app.post('/payments', verifyJWT, async (req, res) => {
+    app.post('/payment', verifyJWT, async (req, res) => {
       const payment = req.body;
       const insertResult = await paymentCollection.insertOne(payment);
+    
+      const query = { _id: new ObjectId(payment.classId) };
+      console.log(query);
 
-      const query = { _id: { $in: payment.cartItems.map(id => new ObjectId(id)) } }
-      const deleteResult = await cartCollection.deleteMany(query)
-
+      const deleteResult = await selectClassCollection.deleteOne(query);
+    
       res.send({ insertResult, deleteResult });
-    })
+    });
 
 
 
